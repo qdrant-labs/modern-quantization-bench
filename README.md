@@ -1,4 +1,4 @@
-# binquant-bench
+# Modern Quantization Benchmarks
 
 A benchmark for Qdrant quantization. It compares scalar, binary, and TurboQuant quantization, plus the `turbo4` datatype, on OpenAI embeddings of DBpedia entities. For each configuration it measures recall against exact search, query latency, and on-disk size.
 
