@@ -1,0 +1,28 @@
+[project]
+name = "binquant-bench"
+version = "0.1.0"
+description = "Quantization benchmark for Qdrant: scalar, binary, TurboQuant, and the turbo4 datatype"
+requires-python = ">=3.12"
+dependencies = [
+    "datasets>=5.1,<6",
+    "httpx>=0.28,<1",
+    "numpy>=2.5,<3",
+    "qdrant-client>=1.19.1,<2",
+]
+
+[project.scripts]
+bench = "binquant_bench.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["upstream", ".cache", "results"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.10",
+    "ty>=0.0.84",
+]
