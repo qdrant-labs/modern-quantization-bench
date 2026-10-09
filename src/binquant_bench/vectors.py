@@ -1,4 +1,5 @@
 import itertools
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,49 +20,89 @@ PROGRESS_EVERY = 10_000
 class DatasetSpec:
     repo: str
     column: str
-    dim: int
 
 
 DATASETS: dict[str, DatasetSpec] = {
-    "ada002-1536": DatasetSpec("KShivendu/dbpedia-entities-openai-1M", "openai", 1536),
+    "ada002-1536": DatasetSpec("KShivendu/dbpedia-entities-openai-1M", "openai"),
     "3-small-1536": DatasetSpec(
         "Qdrant/dbpedia-entities-openai3-text-embedding-3-small-1536-100K",
         "text-embedding-3-small-1536-embedding",
-        1536,
     ),
     "3-large-1536": DatasetSpec(
         "Qdrant/dbpedia-entities-openai3-text-embedding-3-large-1536-1M",
         "text-embedding-3-large-1536-embedding",
-        1536,
     ),
     "3-large-3072": DatasetSpec(
         "Qdrant/dbpedia-entities-openai3-text-embedding-3-large-3072-1M",
         "text-embedding-3-large-3072-embedding",
-        3072,
     ),
+    "3-small-512": DatasetSpec(
+        "Qdrant/dbpedia-entities-openai3-text-embedding-3-small-512-100K",
+        "text-embedding-3-small-512-embedding",
+    ),
+    "3-small-1024": DatasetSpec(
+        "Qdrant/dbpedia-entities-openai3-text-embedding-3-small-1024-100K",
+        "text-embedding-3-small-1024-embedding",
+    ),
+    "3-large-1024": DatasetSpec(
+        "Qdrant/dbpedia-entities-openai3-text-embedding-3-large-1024-100K",
+        "text-embedding-3-large-1024-embedding",
+    ),
+    "arxiv-titles-instructorxl": DatasetSpec(
+        "Qdrant/arxiv-titles-instructorxl-embeddings", "vector"
+    ),
+    "arxiv-abstracts-instructorxl": DatasetSpec(
+        "Qdrant/arxiv-abstracts-instructorxl-embeddings", "vector"
+    ),
+    "bge-m3-ads": DatasetSpec("Qdrant/BGE-m3-1-million-ads", "bgem3_dense_vecs"),
+    "gte-ads": DatasetSpec("Qdrant/gte-multilingual-ads-1M", "gte"),
+    "gte-product-ads": DatasetSpec("Qdrant/gte-multilingual-product-ads-1M", "gte"),
+    "fineweb-10b": DatasetSpec("Qdrant/FineWeb-10B", "dense_embedding"),
+    "coyo-ve": DatasetSpec("Qdrant/Coyo-VE", "qwen_multimodal_embedding"),
+    "wolt-food-clip": DatasetSpec("Qdrant/wolt-food-clip-ViT-B-32-embeddings", "vector"),
 }
+
+
+def resolve_dataset(
+    name: str | None, repo: str | None, column: str | None
+) -> tuple[str, DatasetSpec]:
+    """A registered name, or any Hugging Face dataset given as a repo and a vector column."""
+    if repo and column:
+        return repo.split("/")[-1].lower(), DatasetSpec(repo, column)
+    if name:
+        return name, DATASETS[name]
+    raise ValueError("pass a dataset name, or a repo and a column")
 
 
 def normalize(vectors: Vectors) -> Vectors:
     return vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
 
 
-def stream_vectors(spec: DatasetSpec, n_points: int) -> Vectors:
+def stream_column(spec: DatasetSpec) -> Iterator[NDArray[np.float32]]:
     rows = load_dataset(spec.repo, split="train", streaming=True).select_columns([spec.column])
-    vectors = np.empty((n_points, spec.dim), dtype=np.float32)
-    for i, row in enumerate(itertools.islice(rows, n_points), start=1):
-        vectors[i - 1] = row[spec.column]
-        if i % PROGRESS_EVERY == 0:
-            print(f"  read {i:,}/{n_points:,} vectors", flush=True)
+    return (np.asarray(row[spec.column], dtype=np.float32) for row in rows)
+
+
+def stream_vectors(spec: DatasetSpec, n_points: int) -> Vectors:
+    stream = stream_column(spec)
+    first = next(stream)
+    vectors = np.empty((n_points, len(first)), dtype=np.float32)
+    count = 0
+    for count, vector in enumerate(itertools.islice(itertools.chain([first], stream), n_points), 1):
+        vectors[count - 1] = vector
+        if count % PROGRESS_EVERY == 0:
+            print(f"  read {count:,}/{n_points:,} vectors", flush=True)
+    if count < n_points:
+        raise ValueError(f"{spec.repo} has only {count:,} rows, {n_points:,} requested")
     return normalize(vectors)
 
 
-def load_vectors(dataset: str, n_points: int) -> Vectors:
-    cached = CACHE_DIR / f"{dataset}-{n_points}.npy"
+def load_vectors(name: str, spec: DatasetSpec, n_points: int) -> Vectors:
+    cached = CACHE_DIR / f"{name}-{n_points}.npy"
     if cached.exists():
         return np.load(cached)
     CACHE_DIR.mkdir(exist_ok=True)
-    vectors = stream_vectors(DATASETS[dataset], n_points)
+    vectors = stream_vectors(spec, n_points)
     np.save(cached, vectors)
     return vectors
 

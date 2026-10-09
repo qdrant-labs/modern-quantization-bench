@@ -5,9 +5,9 @@ description = "Quantization benchmark for Qdrant: scalar, binary, TurboQuant, an
 requires-python = ">=3.12"
 dependencies = [
     "datasets>=5.1,<6",
-    "httpx>=0.28,<1",
     "numpy>=2.5,<3",
     "qdrant-client>=1.19.1,<2",
+    "tenacity>=9,<10",
 ]
 
 [project.scripts]

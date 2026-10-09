@@ -1,5 +1,5 @@
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 
@@ -19,14 +19,15 @@ class ResultRow:
     p95_ms: float
     upload_s: float
     index_s: float
-    idle_rss_mb: float
-    idle_rss_anon_mb: float
-    idle_rss_file_mb: float
-    rss_mb: float
-    rss_anon_mb: float
-    rss_file_mb: float
-    segments_mb: float
-    wal_mb: float
+    server_p50_ms: float | None = None
+    server_p95_ms: float | None = None
+    heap_mb: float | None = None
+    vectors_mb: float | None = None
+    cpu_per_query: float | None = None
+    vector_io_read_kb_per_query: float | None = None
+
+
+FIELD_NAMES = {field.name for field in fields(ResultRow)}
 
 
 def append_rows(path: Path, rows: list[ResultRow]) -> None:
@@ -35,4 +36,8 @@ def append_rows(path: Path, rows: list[ResultRow]) -> None:
 
 
 def read_rows(path: Path) -> list[ResultRow]:
-    return [ResultRow(**json.loads(line)) for line in path.read_text().splitlines()]
+    """Read result files from any version. Fields the current schema dropped are ignored."""
+    records = (json.loads(line) for line in path.read_text().splitlines())
+    return [
+        ResultRow(**{k: v for k, v in record.items() if k in FIELD_NAMES}) for record in records
+    ]
