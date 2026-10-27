@@ -7,12 +7,12 @@
 <style>
 :root {
   --bg: #f7f7f9; --panel: #fff; --text: #1c1d22; --muted: #6a6d78; --line: #e2e3e9;
-  --float: #7b7f8c; --scalar: #2e86de; --binary: #e67e22; --turbo: #8e44ad; --turbo4: #16a085;
+  --float: #7b7f8c; --scalar: #2e86de; --binary: #e67e22; --turbo: #8e44ad; --turbo4: #16a085; --turbo8: #c0392b; --turbo16: #d4ac0d;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #14151a; --panel: #1d1f26; --text: #e8e9ee; --muted: #9a9dab; --line: #2d303a;
-    --float: #a0a4b3; --scalar: #5dade2; --binary: #f0a04b; --turbo: #bb8fce; --turbo4: #48c9b0;
+    --float: #a0a4b3; --scalar: #5dade2; --binary: #f0a04b; --turbo: #bb8fce; --turbo4: #48c9b0; --turbo8: #ec7063; --turbo16: #f4d03f;
   }
 }
 * { box-sizing: border-box; }
@@ -81,7 +81,7 @@ td.best { font-weight: 700; }
 
   <div class="panel">
     <div class="scroll"><table id="table"></table></div>
-    <p class="note">Float32 and turbo4-datatype have no rescore or oversampling. They always show. Click a column to sort. Bold is the best value in the column.</p>
+    <p class="note">Float32 and the datatype-only configs (turbo4, turbo8, turbo16) have no rescore or oversampling. They always show. Click a column to sort. Bold is the best value in the column.</p>
   </div>
 </main>
 <script>
@@ -92,6 +92,8 @@ const FAMILIES = [
   ["binary", "binary", (c) => c.startsWith("binary")],
   ["turbo", "turbo bits", (c) => c.startsWith("turbo-")],
   ["turbo4", "turbo4 datatype", (c) => c.startsWith("turbo4")],
+  ["turbo8", "turbo8 datatype", (c) => c.startsWith("turbo8")],
+  ["turbo16", "turbo16 datatype", (c) => c.startsWith("turbo16")],
 ];
 const COLUMNS = [
   ["config", "Config"], ["recall", "Recall"], ["p50_ms", "p50 ms"], ["p95_ms", "p95 ms"],

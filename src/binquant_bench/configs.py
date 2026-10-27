@@ -68,10 +68,10 @@ def scalar_int8() -> models.ScalarQuantization:
     )
 
 
-def build_configs() -> list[Config]:
+def build_configs(is_120: bool = False) -> list[Config]:
     encodings = models.BinaryQuantizationEncoding
     query_encodings = models.BinaryQuantizationQueryEncoding
-    return [
+    configs = [
         Config("float32", "baseline, HNSW on full-precision vectors"),
         Config("scalar-int8", "4x", quantization=scalar_int8()),
         Config("binary-1bit", "32x", quantization=binary()),
@@ -99,3 +99,35 @@ def build_configs() -> list[Config]:
             quantization=turbo(BITS.BITS1),
         ),
     ]
+
+    if is_120:
+        configs.extend(
+            [
+                Config(
+                    "turbo8-datatype",
+                    "turbo8 is a 8-bits datatype derived from TurboQuant",
+                    datatype=models.Datatype.TURBO8,
+                    sweep=False,
+                ),
+                Config(
+                    "turbo16-datatype",
+                    "turbo16 is a 16-bits datatype derived from TurboQuant",
+                    datatype=models.Datatype.TURBO16,
+                    sweep=False,
+                ),
+                Config(
+                    "turbo8-datatype+turbo-bits2",
+                    "turbo8 is a 8-bits datatype derived from TurboQuant",
+                    datatype=models.Datatype.TURBO8,
+                    quantization=turbo(bits=BITS.BITS2),
+                ),
+                Config(
+                    "turbo16-datatype+turbo-bits4",
+                    "turbo16 is a 16-bits datatype derived from TurboQuant",
+                    datatype=models.Datatype.TURBO16,
+                    quantization=turbo(bits=BITS.BITS4),
+                ),
+            ]
+        )
+
+    return configs

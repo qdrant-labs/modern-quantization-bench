@@ -1,4 +1,5 @@
 import os
+import re
 from dataclasses import dataclass
 from typing import Self
 
@@ -9,6 +10,21 @@ from binquant_bench.retry import with_retry
 COLLECTION_PREFIX = "binquant-"
 CLIENT_TIMEOUT_S = 600
 ENV_VARS = ("QDRANT_URL", "QDRANT_API_KEY")
+_SEMVER_RE = re.compile(
+    r"""
+    ^v?
+    (?P<major>0|[1-9]\d*)\.
+    (?P<minor>0|[1-9]\d*)\.
+    (?P<patch>0|[1-9]\d*)
+    (?:-(?P<prerelease>
+        (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+        (?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*
+    ))?
+    (?:\+(?P<build>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?
+    $
+    """,
+    re.VERBOSE,
+)
 
 
 @dataclass(frozen=True)
@@ -34,8 +50,40 @@ class CloudSettings:
         )
 
 
+@dataclass
+class QdrantVersion:
+    major: int
+    minor: int
+    patch: int
+    extra: str
+
+    @classmethod
+    def from_str(cls, s: str) -> "QdrantVersion":
+        match = _SEMVER_RE.match(s.strip())
+        if match is None:
+            raise ValueError(f"Invalid semver version: {s!r}")
+
+        extra = ""
+        if match["prerelease"]:
+            extra += f"-{match['prerelease']}"
+        if match["build"]:
+            extra += f"+{match['build']}"
+
+        return cls(
+            major=int(match["major"]),
+            minor=int(match["minor"]),
+            patch=int(match["patch"]),
+            extra=extra,
+        )
+
+
 def collection_name(dataset: str, config_slug: str) -> str:
     return f"{COLLECTION_PREFIX}{dataset}-{config_slug}"
+
+
+async def cloud_version(client: AsyncQdrantClient) -> QdrantVersion:
+    info = await client.info()
+    return QdrantVersion.from_str(info.version)
 
 
 @with_retry

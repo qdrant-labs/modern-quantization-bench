@@ -8,7 +8,7 @@ from grpc.aio import AioRpcError
 from qdrant_client import AsyncQdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
-from binquant_bench.cloud import CloudSettings, collection_name
+from binquant_bench.cloud import CloudSettings, cloud_version, collection_name
 from binquant_bench.configs import Config, SearchVariant, build_configs
 from binquant_bench.results import ResultRow, append_rows
 from binquant_bench.retry import is_already_exists, with_retry
@@ -310,8 +310,13 @@ async def run_config(
     return to_rows(config, workload, Timings(upload_s, index_s), footprint, measurements)
 
 
-def select_configs(only: list[str] | None) -> list[Config]:
-    return [config for config in build_configs() if not only or config.name in only]
+async def select_configs(only: list[str] | None, qdrant_client: AsyncQdrantClient) -> list[Config]:
+    version = await cloud_version(qdrant_client)
+    return [
+        config
+        for config in build_configs(is_120=version.major == 1 and version.minor >= 20)
+        if not only or config.name in only
+    ]
 
 
 def output_path(options: RunOptions, workload: Workload) -> Path:
@@ -328,7 +333,7 @@ async def run_benchmark(options: RunOptions) -> None:
     path = output_path(options, workload)
     client = settings.async_client()
     try:
-        for config in select_configs(options.only):
+        for config in await select_configs(options.only, client):
             rows = await run_config(config, workload, client, settings)
             append_rows(path, rows)
             print(f"[{config.name}] {len(rows)} rows written", flush=True)
